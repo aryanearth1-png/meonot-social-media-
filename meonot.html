@@ -4447,5 +4447,60 @@ function loadPosts() {
 }
 
 </script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"></script>
+
+<script>
+const firebaseConfig = {
+  apiKey: "AIzaSyBHLGESAFWlf-RV8D1y3-jLRk4W5fuQeBI",
+  authDomain: "meonot-e3ad2.firebaseapp.com",
+  projectId: "meonot-e3ad2",
+};
+
+firebase.initializeApp(firebaseConfig);
+const db = firebase.firestore();
+const auth = firebase.auth();
+
+let currentUser = null;
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    loadPosts();
+  } else {
+    auth.signInAnonymously();
+  }
+});
+
+function addPost() {
+  const text = document.getElementById("postInput").value;
+
+  if (!text.trim()) return;
+
+  db.collection("posts").add({
+    text: text,
+    username: currentUser ? currentUser.uid : "user",
+    time: Date.now()
+  });
+
+  document.getElementById("postInput").value = "";
+}
+
+function loadPosts() {
+  db.collection("posts")
+    .orderBy("time", "desc")
+    .onSnapshot(snapshot => {
+      let html = "";
+
+      snapshot.forEach(doc => {
+        let post = doc.data();
+        html += "<p>" + post.text + "</p>";
+      });
+
+      document.getElementById("feed").innerHTML = html;
+    });
+}
+</script>
 </body>
 </html>
