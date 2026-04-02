@@ -4385,5 +4385,24 @@ function loadPosts() {
     });
 }
 </script>
+function addPost() {
+  const text = document.getElementById("postInput").value;
+
+  if (!text.trim()) return;
+
+  db.collection("posts").add({
+    text: text,
+    username: currentUser ? currentUser.uid : "user",
+    time: Date.now()
+  })
+  .then(() => {
+    console.log("Post saved to Firebase ✅");
+  })
+  .catch((error) => {
+    console.error("Error saving post:", error);
+  });
+
+  document.getElementById("postInput").value = "";
+}
 </body>
 </html>
