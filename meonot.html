@@ -4348,8 +4348,8 @@ auth.onAuthStateChanged(user => {
   }
 });
 
-function addPost() {
-  const text = document.getElementById("postInput").value;
+  const
+ text = document.getElementById("postInput").value;
 
   if (!text) return;
 
@@ -4385,7 +4385,7 @@ function loadPosts() {
     });
 }
 </script>
-function addPost() {
+
   const text = document.getElementById("postInput").value;
 
   if (!text.trim()) return;
@@ -4404,5 +4404,48 @@ function addPost() {
 
   document.getElementById("postInput").value = "";
 }
+<script>
+
+let currentUser = null;
+
+auth.onAuthStateChanged(user => {
+  if (user) {
+    currentUser = user;
+    loadPosts();
+  } else {
+    auth.signInAnonymously();
+  }
+});
+
+function addPost() {
+  const text = document.getElementById("postInput").value;
+
+  if (!text.trim()) return;
+
+  db.collection("posts").add({
+    text: text,
+    username: currentUser ? currentUser.uid : "user",
+    time: Date.now()
+  });
+
+  document.getElementById("postInput").value = "";
+}
+
+function loadPosts() {
+  db.collection("posts")
+    .orderBy("time", "desc")
+    .onSnapshot(snapshot => {
+      let html = "";
+
+      snapshot.forEach(doc => {
+        let post = doc.data();
+        html += "<p>" + post.text + "</p>";
+      });
+
+      document.getElementById("feed").innerHTML = html;
+    });
+}
+
+</script>
 </body>
 </html>
