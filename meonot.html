@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+﻿<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
@@ -1708,6 +1708,7 @@ img {
 
   const state = {
     backend: "starting",
+    firebaseReady: false,
     route: "feed",
     profile: null,
     posts: [],
@@ -1726,6 +1727,7 @@ img {
   };
 
   const refs = {};
+  let currentUser = null;
 
   document.addEventListener("DOMContentLoaded", bootstrap);
 
@@ -1739,8 +1741,7 @@ img {
       await startBackend();
     } catch (error) {
       console.error(error);
-      showToast("Startup failed, so Meonot switched to local mode.");
-      initializeLocalMode();
+      showToast("Startup failed. Check the Firebase config and console errors.");
     }
   }
 
@@ -1877,20 +1878,12 @@ img {
   async function startBackend() {
     const config = window.MEONOT_FIREBASE_CONFIG || {};
 
-    if (hasFirebaseConfig(config)) {
-      try {
-        updateStatus("Loading Firebase...", "busy");
-        await initializeFirebase(config);
-        return;
-      } catch (error) {
-        console.error(error);
-        clearFirebaseListeners();
-        state.firebase = null;
-        showToast("Firebase is not ready yet, so Meonot is using local mode.");
-      }
+    if (!hasFirebaseConfig(config)) {
+      throw new Error("Missing Firebase config.");
     }
 
-    initializeLocalMode();
+    updateStatus("Loading Firebase...", "busy");
+    await initializeFirebase(config);
   }
 
   async function initializeFirebase(config) {
@@ -1908,6 +1901,7 @@ img {
       : firebaseGlobal.initializeApp(config);
     const auth = app.auth();
 
+    console.log("Firebase initialized");
     console.log("[Meonot] Firebase app initialized:", app.name);
 
     try {
@@ -1922,8 +1916,10 @@ img {
 
     const user = await waitForAuthUser(auth);
     console.log("[Meonot] Anonymous auth ready:", user.uid);
+    console.log("User logged in");
 
     state.backend = "firebase";
+    state.firebaseReady = true;
     state.firebase = {
       firebase: firebaseGlobal,
       app,
@@ -1932,8 +1928,10 @@ img {
       storage: app.storage(),
       user
     };
+    currentUser = user;
 
     subscribeFirebaseData(user.uid);
+    console.log("Firebase ready");
     renderEverything();
   }
 
@@ -2129,27 +2127,20 @@ img {
       const handle = state.profile ? "@" + state.profile.username + " | Firebase" : "Firebase live";
       updateStatus(handle, "cloud");
       refs.modeBanner.textContent = isFileMode
-        ? "Firebase config is present, but cloud mode works best from GitHub Pages or a local web server. If browser restrictions stop it, Meonot falls back to local mode."
+        ? "Firebase is live. Open Meonot from GitHub Pages or a local server for the cleanest experience."
         : "Firebase is live. Authentication, Firestore, and Storage are connected for real-time sync.";
       refs.modeBanner.className = "banner cloud";
       refs.backendTitle.textContent = "Firebase Mode";
       refs.backendNote.textContent = "Realtime posts, shared profiles, and synced verification keys are active.";
-    } else if (state.backend === "local") {
-      const handle = state.profile ? "@" + state.profile.username + " | Online" : "Local demo mode";
-      updateStatus(handle, "local");
-      refs.modeBanner.textContent = "Local mode is active now so this file works when opened directly. Add Firebase config here later to enable cloud sync.";
-      refs.modeBanner.className = "banner local";
-      refs.backendTitle.textContent = "Local Mode";
-      refs.backendNote.textContent = "Everything is stored in this browser right now, so you can test the app immediately by double-clicking the HTML file.";
     } else {
       updateStatus("Starting...", "starting");
-      refs.modeBanner.textContent = "Meonot is starting. If Firebase is not ready, the app will still continue in local mode.";
+      refs.modeBanner.textContent = "Meonot is starting. Firebase must finish connecting before posting is enabled.";
       refs.modeBanner.className = "banner local";
       refs.backendTitle.textContent = "Starting";
       refs.backendNote.textContent = "The app is preparing your session.";
     }
 
-    refs.localToolsPanel.classList.toggle("hidden", state.backend !== "local");
+    refs.localToolsPanel.classList.add("hidden");
   }
 
   function renderProfileDetails() {
@@ -2286,7 +2277,7 @@ img {
       '<span class="post-handle">@' + escapeHtml(post.username) + "</span>" +
       badgeHtml(post.role) +
       "</div>" +
-      '<div class="post-context">' + escapeHtml(capitalize(post.role)) + ' post' + " · " + escapeHtml(template.label) + ' style</div>' +
+      '<div class="post-context">' + escapeHtml(capitalize(post.role)) + ' post' + " Â· " + escapeHtml(template.label) + ' style</div>' +
       "</div>" +
       '<span class="post-time">' + escapeHtml(formatTime(post.timestamp)) + "</span>" +
       "</div>" +
@@ -3050,6 +3041,12 @@ img {
       return;
     }
 
+    if (!state.firebaseReady || !state.firebase || !state.firebase.db || !state.firebase.auth || !currentUser) {
+      console.warn("[Meonot] Post blocked because Firebase is not ready.");
+      showToast("Firebase is still connecting. Please wait a moment.");
+      return;
+    }
+
     const text = refs.postText.value.trim();
     const template = ensureSelectedTemplate();
 
@@ -3081,11 +3078,7 @@ img {
           : state.selectedVideo.previewUrl;
       }
 
-      if (state.backend === "firebase") {
-        await createFirebasePost({ text, imageURL, videoURL, template });
-      } else {
-        createLocalPost({ text, imageURL, videoURL, template });
-      }
+      await createFirebasePost({ text, imageURL, videoURL, template });
 
       refs.postText.value = "";
       updateCharCount();
@@ -3096,6 +3089,7 @@ img {
       showToast("Post published.");
     } catch (error) {
       console.error(error);
+      console.error("Error saving post", error);
       showToast(error.message || "The post could not be published.");
     } finally {
       setBusy(false);
@@ -3250,15 +3244,6 @@ img {
   }
 
   function handleResetLocal() {
-    if (state.backend !== "local") {
-      return;
-    }
-
-    if (!window.confirm("Reset Meonot data stored in this browser?")) {
-      return;
-    }
-
-    localStorage.removeItem(LOCAL_STORAGE_KEY);
     refs.setupForm.reset();
     refs.verifyForm.reset();
     refs.postForm.reset();
@@ -3266,8 +3251,7 @@ img {
     closeComposer();
     clearSelectedImage();
     clearSelectedVideo();
-    initializeLocalMode();
-    showToast("Local browser data cleared.");
+    showToast("Firebase mode is active.");
   }
 
   function updateCharCount() {
@@ -3568,6 +3552,10 @@ img {
   }
 
   async function createFirebasePost(payload) {
+    if (!state.firebaseReady || !state.firebase || !state.firebase.db || !currentUser) {
+      throw new Error("Firebase is not ready yet.");
+    }
+
     console.log("[Meonot] Saving post to Firestore...");
 
     const docRef = await state.firebase.db.collection("posts").add({
@@ -3586,6 +3574,7 @@ img {
     });
 
     console.log("[Meonot] Post saved:", docRef.id);
+    console.log("Post saved");
   }
 
   function updateLocalProfilePhoto(photoURL) {
@@ -4335,214 +4324,7 @@ img {
     return document.getElementById(id);
   }
 })();
-  </script><script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"></script>
-<script>
-  const firebaseConfig = {
-    apiKey: "AIzaSyBHLGESAFWlf-RV8D1y3-jLRk4W5fuQeBI ",
-    authDomain: "meonot-e3ad2.firebaseapp.com ",
-    projectId: "meonot-e3ad2 ",
-  };
-
-  const app = firebase.initializeApp(firebaseConfig);
-  const db = firebase.firestore();
-  const auth = firebase.auth();
-let currentUser = null;
-auth.onAuthStateChanged(user => {
-  if (user) {
-    currentUser = user;
-    loadPosts();
-  } else {
-    auth.signInAnonymously();
-  }
-});
-
-  const
- text = document.getElementById("postInput").value;
-
-  if (!text) return;
-
-  db.collection("posts").add({
-  text: text,
-  username: currentUser.uid,
-  time: Date.now()
-});
-    text: text,
-    time: Date.now()
-  });
-
-  document.getElementById("postInput").value = "";
-}
-
-function loadPosts() {
-  db.collection("posts")
-    .orderBy("time", "desc")
-    .onSnapshot(snapshot => {
-      let html = "";
-
-      snapshot.forEach(doc => {
-        let post = doc.data();
-        html += `
-  <div style="padding:10px; border-bottom:1px solid #ddd;">
-    <b>${post.username ? post.username.substring(0,6) : "user"}</b>
-    <p>${post.text}</p>
-  </div>
-`;
-      });
-
-      document.getElementById("feed").innerHTML = html;
-    });
-}
-</script>
-
- 
-<script>
-
-let currentUser = null;
-
-auth.onAuthStateChanged(user => {
-  if (user) {
-    currentUser = user;
-    loadPosts();
-  } else {
-    auth.signInAnonymously();
-  }
-});
-
-function addPost() {
-  const text = document.getElementById("postInput").value;
-
-  if (!text.trim()) return;
-
-  db.collection("posts").add({
-    text: text,
-    username: currentUser ? currentUser.uid : "user",
-    time: Date.now()
-  });
-
-  document.getElementById("postInput").value = "";
-}
-
-function loadPosts() {
-  db.collection("posts")
-    .orderBy("time", "desc")
-    .onSnapshot(snapshot => {
-      let html = "";
-
-      snapshot.forEach(doc => {
-        let post = doc.data();
-        html += "<p>" + post.text + "</p>";
-      });
-
-      document.getElementById("feed").innerHTML = html;
-    });
-}
-
-</script>
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-auth.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.0/firebase-firestore.js"></script>
-
-<script>
-const firebaseConfig = {
-  apiKey: "AIzaSyBHLGESAFWlf-RV8D1y3-jLRk4W5fuQeBI",
-  authDomain: "meonot-e3ad2.firebaseapp.com",
-  projectId: "meonot-e3ad2",
-};
-
-firebase.initializeApp(firebaseConfig);
-const db = firebase.firestore();
-const auth = firebase.auth();
-
-let currentUser = null;
-
-auth.onAuthStateChanged(user => {
-  if (user) {
-    currentUser = user;
-    loadPosts();
-  } else {
-    auth.signInAnonymously();
-  }
-});
-
-function addPost() {
-  const text = document.getElementById("postInput").value;
-
-  if (!text.trim()) return;
-
-  db.collection("posts").add({
-    text: text,
-    username: currentUser ? currentUser.uid : "user",
-    time: Date.now()
-  });
-
-  document.getElementById("postInput").value = "";
-}
-
-function loadPosts() {
-  db.collection("posts")
-    .orderBy("time", "desc")
-    .onSnapshot(snapshot => {
-      let html = "";
-
-      snapshot.forEach(doc => {
-        let post = doc.data();
-        html += "<p>" + post.text + "</p>";
-      });
-
-      document.getElementById("feed").innerHTML = html;
-    });
-}
-</script>
-<script>
-
-let currentUser = null;
-
-auth.onAuthStateChanged(user => {
-  if (user) {
-    currentUser = user;
-    loadPosts();
-  } else {
-    auth.signInAnonymously();
-  }
-});
-
-function addPost() {
-  const text = document.getElementById("postInput").value;
-
-  if (!text.trim()) return;
-
-  db.collection("posts").add({
-    text: text,
-    username: currentUser ? currentUser.uid : "user",
-    time: Date.now()
-  })
-  .then(() => {
-    console.log("Post saved ✅");
-  })
-  .catch((error) => {
-    console.error("Error:", error);
-  });
-
-  document.getElementById("postInput").value = "";
-}
-
-function loadPosts() {
-  db.collection("posts")
-    .orderBy("time", "desc")
-    .onSnapshot(snapshot => {
-      let html = "";
-
-      snapshot.forEach(doc => {
-        let post = doc.data();
-        html += "<p>" + post.text + "</p>";
-      });
-
-      document.getElementById("feed").innerHTML = html;
-    });
-}
-
-</script>
+  </script>
 </body>
 </html>
+
