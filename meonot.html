@@ -1674,12 +1674,13 @@ img {
 
   <script>
     window.MEONOT_FIREBASE_CONFIG = window.MEONOT_FIREBASE_CONFIG || {
-      apiKey: "",
-      authDomain: "",
-      projectId: "",
-      storageBucket: "",
-      messagingSenderId: "",
-      appId: ""
+      apiKey: "AIzaSyBHLGESAFWlf-RV8D1y3-jLRk4W5fuQeBI",
+      authDomain: "meonot-e3ad2.firebaseapp.com",
+      projectId: "meonot-e3ad2",
+      storageBucket: "meonot-e3ad2.firebasestorage.app",
+      messagingSenderId: "121345677401",
+      appId: "1:121345677401:web:3a4603b2e1ea74bfaff948",
+      measurementId: "G-GFY17RWZ5J"
     };
   </script>
 
@@ -1899,11 +1900,15 @@ img {
       throw new Error("Firebase SDK could not be loaded.");
     }
 
+    console.log("[Meonot] Firebase SDK loaded.");
+
     const firebaseGlobal = window.firebase;
     const app = firebaseGlobal.apps && firebaseGlobal.apps.length
       ? firebaseGlobal.app()
       : firebaseGlobal.initializeApp(config);
     const auth = app.auth();
+
+    console.log("[Meonot] Firebase app initialized:", app.name);
 
     try {
       await auth.setPersistence(firebaseGlobal.auth.Auth.Persistence.LOCAL);
@@ -1916,6 +1921,7 @@ img {
     }
 
     const user = await waitForAuthUser(auth);
+    console.log("[Meonot] Anonymous auth ready:", user.uid);
 
     state.backend = "firebase";
     state.firebase = {
@@ -3562,7 +3568,9 @@ img {
   }
 
   async function createFirebasePost(payload) {
-    await state.firebase.db.collection("posts").add({
+    console.log("[Meonot] Saving post to Firestore...");
+
+    const docRef = await state.firebase.db.collection("posts").add({
       text: payload.text,
       imageURL: payload.imageURL || "",
       videoURL: payload.videoURL || "",
@@ -3576,6 +3584,8 @@ img {
       comments: [],
       timestamp: state.firebase.firebase.firestore.FieldValue.serverTimestamp()
     });
+
+    console.log("[Meonot] Post saved:", docRef.id);
   }
 
   function updateLocalProfilePhoto(photoURL) {
