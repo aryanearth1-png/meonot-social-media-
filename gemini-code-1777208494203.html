@@ -1,0 +1,144 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Meonot Closure Notice</title>
+    <style>
+        /* Modern Reset & Deep Space Background */
+        body {
+            margin: 0;
+            font-family: 'Inter', system-ui, -apple-system, sans-serif;
+            background: linear-gradient(135deg, #0f172a, #1e1b4b);
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            overflow: hidden;
+            color: #e2e8f0;
+        }
+
+        /* Ambient glowing orbs to give the liquid glass depth */
+        .ambient-orb {
+            position: absolute;
+            border-radius: 50%;
+            filter: blur(90px);
+            z-index: 0;
+            animation: float 10s infinite alternate ease-in-out;
+        }
+        .orb-red { 
+            width: 300px; height: 300px; 
+            background: #e11d48; 
+            top: -50px; left: -50px; 
+            opacity: 0.4; 
+        }
+        .orb-purple { 
+            width: 350px; height: 350px; 
+            background: #6d28d9; 
+            bottom: -100px; right: -50px; 
+            opacity: 0.5; 
+        }
+
+        /* 3D Liquid Glassmorphism Card */
+        .glass-bumper {
+            position: relative;
+            z-index: 10;
+            width: 88%;
+            max-width: 420px;
+            padding: 40px 32px;
+            background: rgba(255, 255, 255, 0.03);
+            backdrop-filter: blur(24px);
+            -webkit-backdrop-filter: blur(24px); /* For smooth mobile rendering */
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            border-radius: 32px;
+            box-shadow: 0 30px 60px -15px rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255,255,255,0.2);
+            text-align: center;
+            opacity: 0;
+            animation: slideUpFade 0.7s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+
+        @keyframes slideUpFade {
+            0% { transform: translateY(50px); opacity: 0; }
+            100% { transform: translateY(0); opacity: 1; }
+        }
+
+        @keyframes float {
+            0% { transform: translate(0, 0); }
+            100% { transform: translate(30px, -30px); }
+        }
+
+        /* Typography & Iconography */
+        .alert-icon { 
+            font-size: 3.5rem; 
+            margin-bottom: 20px; 
+            filter: drop-shadow(0 4px 10px rgba(225, 29, 72, 0.4));
+        }
+        h2 { 
+            margin: 0 0 16px 0; 
+            font-size: 1.6rem; 
+            font-weight: 700; 
+            color: #ffffff; 
+            letter-spacing: -0.02em;
+        }
+        p { 
+            font-size: 1rem; 
+            line-height: 1.6; 
+            color: #94a3b8; 
+            margin-bottom: 30px; 
+        }
+        .highlight { color: #e2e8f0; font-weight: 500; }
+        
+        /* Modern Neumorphic/Glowing Button */
+        .btn-acknowledge {
+            background: linear-gradient(135deg, #f43f5e, #be123c);
+            color: white;
+            border: none;
+            padding: 16px 24px;
+            border-radius: 99px;
+            font-size: 1.05rem;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            box-shadow: 0 8px 20px -6px rgba(244, 63, 94, 0.5);
+        }
+        .btn-acknowledge:active { 
+            transform: scale(0.97); 
+        }
+        .btn-acknowledge:hover { 
+            box-shadow: 0 12px 25px -4px rgba(244, 63, 94, 0.7);
+            filter: brightness(1.1);
+        }
+    </style>
+</head>
+<body>
+
+    <div class="ambient-orb orb-red"></div>
+    <div class="ambient-orb orb-purple"></div>
+
+    <div class="glass-bumper" id="closure-bumper">
+        <div class="alert-icon">🛑</div>
+        <h2>Meonot is Closing</h2>
+        <p>
+            Due to overwhelming malicious bot attacks causing our servers to hang, we have made the tough decision to <span class="highlight">permanently close Meonot</span>. We can no longer guarantee the safety and stability of the software.
+            <br><br>
+            Thank you for supporting ORGINATION. 🌍✨
+        </p>
+        <button class="btn-acknowledge" onclick="closeBumper()">I Understand</button>
+    </div>
+
+    <script>
+        // Smoothly fade out the bumper when the user acknowledges it
+        function closeBumper() {
+            const bumper = document.getElementById('closure-bumper');
+            bumper.style.transition = 'all 0.4s ease';
+            bumper.style.opacity = '0';
+            bumper.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                bumper.style.display = 'none';
+            }, 400); // Waits for the animation to finish
+        }
+    </script>
+</body>
+</html>
